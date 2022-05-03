@@ -1,0 +1,27 @@
+version: '3.5'
+
+services:
+
+  #nome do servico
+  webscraping-python-selenium:
+
+    #construido a partir de uma imagem customizada em ./image
+    image: webscraping-python-selenium
+    
+    #nome do conteiner
+    container_name: webscraping-python-selenium
+
+    #pastas compartilhadas
+    volumes:
+      #pasta do codigo fonte da aplicacao
+      - "./app:/root"
+
+    #porta a ser exposta
+    ports:
+      - 4444:4444
+
+    # ajustando a memória a ser reservada ao conteiner
+    shm_size: '1gb'
+  
+    #artifício para manter o container aberto
+    tty: true

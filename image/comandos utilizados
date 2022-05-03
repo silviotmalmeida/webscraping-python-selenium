@@ -1,0 +1,30 @@
+sudo docker run -d selenium/standalone-chrome
+
+    sudo docker container exec -it (id do container obtido em sudo docker ps -a) bash
+
+        sudo apt update
+
+        # dependencias gerais
+        sudo apt install python3.8 python3.8-dev python3-pip wget imagemagick -y
+
+        # ajustes do imagemagick
+        sudo sed -i '/disable ghostscript format types/,+6d' /etc/ImageMagick-6/policy.xml
+        sudo sed -i 's/name="width" value="16KP"/name="width" value="64KP"/g' /etc/ImageMagick-6/policy.xml
+        sudo sed -i 's/name="height" value="16KP"/name="height" value="64KP"/g' /etc/ImageMagick-6/policy.xml
+        sudo sed -i 's/name="memory" value="256MiB"/name="memory" value="1024MiB"/g' /etc/ImageMagick-6/policy.xml
+
+        sudo pip3 install selenium
+
+        sudo pip3 install requests
+
+        sudo pip3 install beautifulsoup4
+
+        sudo pip3 install pillow
+
+        exit
+
+sudo docker stop (id do container obtido em sudo docker ps -a)
+
+sudo docker commit (id do container obtido em sudo docker ps -a) webscraping-python-selenium
+
+sudo docker save webscraping-python-selenium > webscraping-python-selenium.tar
