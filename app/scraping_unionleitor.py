@@ -29,7 +29,7 @@ files_folder = 'files'
 initial_chapter = 1
 
 # definindo o capítulo final a ser baixado
-final_chapter =9999
+final_chapter =2
 
 # tratamento de exceções
 try:

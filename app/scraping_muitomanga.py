@@ -1,7 +1,9 @@
-# script com função de baixar mangás no site mangayabu.top
+# script com função de baixar mangás no site muitomanga.com
 
 # importando as dependências
 from selenium import webdriver  # biblioteca de automação de testes
+from selenium.webdriver.support.select import Select # importação para manusear elementos select
+from selenium.webdriver.common.by import By # importação para busca de elementos
 import time # biblioteca para permitir sleep de execução
 import requests  # biblioteca de requisições http
 from bs4 import BeautifulSoup  # biblioteca de tratamento de html
@@ -13,7 +15,7 @@ from PIL import Image # biblioteca para tratamento de imagens
 
 
 # url principal do mangá na Mangayabu
-main_url = 'http://mangayabu.top/manga/sweet-home/?PageSpeed=noscript'
+main_url = 'https://muitomanga.com/manga/sweet-home'
 
 # obtendo a pasta do projeto
 project_folder = os.path.dirname(os.path.realpath(__file__))
@@ -22,10 +24,10 @@ project_folder = os.path.dirname(os.path.realpath(__file__))
 files_folder = 'files'
 
 # definindo o capítulo inicial a ser baixado
-initial_chapter = 135
+initial_chapter = 134
 
 # definindo o capítulo final a ser baixado
-final_chapter =9999
+final_chapter =134
 
 # tratamento de exceções
 try:
@@ -64,24 +66,17 @@ try:
     # coletando todas as tag <a> da url principal
     for url in html.select('a'):
 
-        # se o atributo title da tag possuir os caracteres 'Ler ', corresponde a um capítulo
-        if url.get('title') != None and 'Ler ' in url.get('title'):
+        # se o texto da tag possuir os caracteres 'Capítulo #', corresponde a um capítulo
+        if url.text != None and 'Capítulo #' in url.text:
 
-            # coletando todas as tag <div> da <a>
-            for div in url.select('div'):
+            # nomeando a pasta do capítulo a partir do texto da tag
+            chapter_folder = (url.text[10:]).zfill(9)
 
-                # se o texto da tag possuir os caracteres 'Capítulo #', corresponde a um capítulo
-                if 'Capítulo #' in div.text:
+            # obtendo o url do capítulo a partir do atributo href
+            chapter_url = 'https://muitomanga.com' + url.get('href')
 
-                    # nomeando a pasta do capítulo a partir do texto da tag
-                    chapter_folder = (div.text.split('???')[0][10:]).zfill(9)
-
-                    # obtendo o url do capítulo a partir do atributo href
-                    chapter_url = url.get('href')
-
-                    # populando o dicionário com a pasta e a url do capítulo
-                    folder_url[chapter_folder] = chapter_url
-
+            # populando o dicionário com a pasta e a url do capítulo
+            folder_url[chapter_folder] = chapter_url
    
     # percorrendo o dicionário ordenado pelo capítulo
     for chapter_folder, chapter_url in reversed(folder_url.items()):
@@ -92,7 +87,7 @@ try:
         # se o número da capítulo estiver entre o intervalo especificado, prossegue
         if chapter_number >= initial_chapter and chapter_number <= final_chapter:
 
-            # fazendo a requisição na url do capítulo para saber se o site esta no ar
+            # fazendo a requisição na url do capítulo para saber se o site esta no ar            
             response = requests.get(chapter_url)
 
             # fechando a conexão
@@ -103,13 +98,19 @@ try:
                 raise Exception(
                     f'Falha na requisição, código {response.status_code}')
 
-
             # fazendo a requisição na url do capítulo com o selenium para obter as imagens
             driver = webdriver.Remote(
                 command_executor='http://0.0.0.0:4444/wd/hub',
                 options=webdriver.ChromeOptions()
             )
             driver.get(chapter_url)
+            time.sleep(5)
+
+            select_element = driver.find_element(By.ID, 'slch')
+            select_object = Select(select_element)
+            select_object.select_by_visible_text('Modo Scroll')
+            time.sleep(5)
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(5)
 
             # tratando o html recebido
@@ -126,78 +127,78 @@ try:
             # criando a pasta do capítulo
             os.mkdir(f'{project_folder}/{files_folder}/{chapter_folder}')
 
-            # coletando todas as tag <img> da url do capítulo
-            images = html.select('img')
+            # coletando todas as tag <div> da url do capítulo
+            for div in html.select('div'):
 
-            # se forem encontradas poucas imagens, lança uma exceção
-            if len(images) < 3:
-                raise Exception(
-                    f'Quantidade de imagens({len(images)}) menor que 6')
+                # se o atributo class da tag for 'reader-area'
+                if div.get('class') != None and 'reader-area' in div.get('class'):
 
-            # coletando todas as tag <img> da url do capítulo
-            for image in html.select('img'):
+                    # coletando todas as tag <img> da url do capítulo
+                    for image in div.select('img'):
 
-                # se o atributo alt da tag possuir os caracteres 'Página ', corresponde a um capítulo
-                if image.get('alt') != None and 'Página ' in image.get('alt'):
+                        # se o atributo src da tag possuir os caracteres '.jpg' e possuir o atributo onerror não vazio
+                        if image.get('src').split('.')[-1] == 'jpg' and image.get('onerror') != '':
 
-                    # obtendo a url da imagem a partir do atributo data-src
-                    image_url = image.get('data-src')
+                            print(image)
 
-                    # obtendo a extensão do arquivo
-                    image_extension = image_url.split('.')[-1]
+                            # obtendo a url da imagem a partir do atributo src
+                            image_url = image.get('src')
 
-                    # definindo a página da imagem a partir do atributo alt, e configurando com 9 dígitos
-                    image_page = (image.get('alt')[7:]).zfill(9)
+                            # obtendo a extensão do arquivo
+                            image_extension = image_url.split('.')[-1]
 
-                    # utilizando o wget para realizar o download da imagem
-                    cmd = subprocess.run(
-                        f"wget --tries=99 -O '{project_folder}/{files_folder}/{chapter_folder}/{image_page}.{image_extension}' '{image_url}'", shell=True)
-                    
-                    # se ocorrer um erro, lança uma exceção
-                    if cmd.returncode != 0:
-                        raise Exception(f'Erro baixando a imagem {image_url}')
+                            # definindo a página da imagem a partir do atributo src, e configurando com 9 dígitos
+                            image_page = image.get('src').split('/')[-1].replace('.jpg', '').zfill(9)
 
-                    # abrindo a imagem original
-                    old_image = Image.open(
-                        f'{project_folder}/{files_folder}/{chapter_folder}/{image_page}.{image_extension}').convert('RGB')
+                            # utilizando o wget para realizar o download da imagem
+                            cmd = subprocess.run(
+                                f"wget --tries=99 -O '{project_folder}/{files_folder}/{chapter_folder}/{image_page}.{image_extension}' '{image_url}'", shell=True)
+                            
+                            # se ocorrer um erro, lança uma exceção
+                            if cmd.returncode != 0:
+                                raise Exception(f'Erro baixando a imagem {image_url}')
 
-                    # obtendo as dimensões da imagem original
-                    width, height = old_image.size
+                            # abrindo a imagem original
+                            old_image = Image.open(
+                                f'{project_folder}/{files_folder}/{chapter_folder}/{image_page}.{image_extension}').convert('RGB')
 
-                    # definindo o width máximo da imagem
-                    new_width = 960
+                            # obtendo as dimensões da imagem original
+                            width, height = old_image.size
 
-                    # se a imagem original for maior:
-                    if width > new_width:
+                            # definindo o width máximo da imagem
+                            new_width = 960
 
-                        # calcula o novo height para manter a proporção
-                        new_height = round((new_width*height)/width)
+                            # se a imagem original for maior:
+                            if width > new_width:
 
-                        # cria uma nova imagem redimensionada
-                        new_image = old_image.resize(
-                            (new_width, new_height), Image.LANCZOS)
+                                # calcula o novo height para manter a proporção
+                                new_height = round((new_width*height)/width)
 
-                    # senão
-                    else:
+                                # cria uma nova imagem redimensionada
+                                new_image = old_image.resize(
+                                    (new_width, new_height), Image.LANCZOS)
 
-                        # mantém as dimensões originais
-                        new_image = old_image
+                            # senão
+                            else:
 
-                    # salvando a nova imagem, otimizando a qualidade
-                    new_image.save(
-                        f'{project_folder}/{files_folder}/{chapter_folder}/_{image_page}.{image_extension}',
-                        optimize=True,
-                        quality=50
-                    )
+                                # mantém as dimensões originais
+                                new_image = old_image
 
-                    # apagando a imagem original
-                    cmd = subprocess.run(
-                        f"rm -rf '{project_folder}/{files_folder}/{chapter_folder}/{image_page}.{image_extension}'", shell=True)
+                            # salvando a nova imagem, otimizando a qualidade
+                            new_image.save(
+                                f'{project_folder}/{files_folder}/{chapter_folder}/_{image_page}.{image_extension}',
+                                optimize=True,
+                                quality=50
+                            )
 
-                    # se ocorrer um erro, lança uma exceção
-                    if cmd.returncode != 0:
-                        raise Exception(
-                            f'Erro apagando a imagem {project_folder}/{files_folder}/{chapter_folder}/{image_page}.{image_extension}')
+                            # apagando a imagem original
+                            cmd = subprocess.run(
+                                f"rm -rf '{project_folder}/{files_folder}/{chapter_folder}/{image_page}.{image_extension}'", shell=True)
+
+                            # se ocorrer um erro, lança uma exceção
+                            if cmd.returncode != 0:
+                                raise Exception(
+                                    f'Erro apagando a imagem {project_folder}/{files_folder}/{chapter_folder}/{image_page}.{image_extension}')
 
             # utilizando o imagemagick para realizar converter o capítulo em pdf            
             cmd = subprocess.run(
