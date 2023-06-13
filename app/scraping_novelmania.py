@@ -21,7 +21,7 @@ try:
         os.mkdir(f'{project_folder}/{files_folder}')
 
     # inicializando o link do próximo capítulo
-    next_url = 'https://novelmania.com.br/novels/lendario-escultor-do-luar/capitulos/volume-58-agradecimentos'
+    next_url = 'https://novelmania.com.br/novels/cheat-do-crescimento/capitulos/volume-3-lista-de-personagens'
 
     # inicializando o condicional do laço de captura
     continue_script = True
@@ -29,12 +29,22 @@ try:
     # iniciando o laço de captura
     while continue_script:
 
+        print(f'{next_url}\n')
+
         # definindo o volume a ser baixado
         volume_number = next_url.split("volume-")[1].split("-")[0].zfill(3)
+        # volume_number = '001'
         
         # definindo o capítulo a ser baixado
-        # chapter_number = next_url.split("capitulo-")[1].split("-")[0].zfill(3)
-        chapter_number = '010'
+        if "prologo" in next_url:
+            chapter_number = '000_prologo'
+        elif "epilogo" in next_url:
+            chapter_number = 'ZZZ_epilogo'
+        elif "lista-de-personagens" in next_url:
+            chapter_number = 'ZZZ_lista-de-personagens'
+        else:
+            chapter_number = next_url.split("capitulo-")[1].split("-")[0].zfill(3)
+        # chapter_number = '208'
         
         # definindo as tags da página de saída
         initial_tags=f'<html><head><title>volume {volume_number} / capítulo {chapter_number}</title></head><body>'
@@ -100,6 +110,9 @@ try:
             continue_script = False
 
         print(f'Arquivo {volume_number}-{chapter_number}.html pronto.\n')
+
+        # descomente para executar uma vez
+        # exit()
 
 # em caso de erro:
 except Exception as error:
