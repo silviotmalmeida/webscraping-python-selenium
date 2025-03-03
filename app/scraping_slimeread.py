@@ -26,8 +26,9 @@ try:
         os.mkdir(f'{project_folder}/{files_folder}')
 
     # inicializando o link do próximo capítulo
-    next_url = 'https://slimeread.com/ler/2618/cap-245'
-    # next_url = 'https://slimeread.com/ler/6901/cap-6'
+    # next_url = 'https://slimeread.com/ler/2618/cap-489'
+    # next_url = 'https://slimeread.com/ler/6901/cap-102'
+    next_url = 'https://slimeread.com/ler/9113/cap-1'
 
     manga_id = next_url.split("/")[4]
 
@@ -74,7 +75,7 @@ try:
             images = html.select('img')
             # se forem encontradas poucas imagens, recarrega a página
             if len(images) < 3:
-                print(f'Recarregando a página\n')
+                print(f'Recarregando a página...\n')
                 driver.refresh()
             else:
                # fechando o driver
