@@ -10,6 +10,7 @@ import os  # biblioteca de manipulação de pastas
 import shutil  # biblioteca de manipulação de pastas
 import re  # biblioteca de expressões regulares
 from PIL import Image # biblioteca para tratamento de imagens
+import pillow_avif # plugin adicional para o pillow
 
 # obtendo a pasta do projeto
 project_folder = os.path.dirname(os.path.realpath(__file__))
@@ -25,8 +26,8 @@ try:
         os.mkdir(f'{project_folder}/{files_folder}')
 
     # inicializando o link do próximo capítulo
-    # next_url = 'https://slimeread.com/ler/2618/cap-15'
-    next_url = 'https://slimeread.com/ler/6901/cap-6'
+    next_url = 'https://slimeread.com/ler/2618/cap-245'
+    # next_url = 'https://slimeread.com/ler/6901/cap-6'
 
     manga_id = next_url.split("/")[4]
 
@@ -39,7 +40,11 @@ try:
         print(f'{next_url}\n')
 
         # definindo o capítulo a ser baixado
-        chapter_number = next_url.split("cap-")[1].zfill(4)
+        if '.' in next_url.split("cap-")[1]:
+            chapter_number = next_url.split("cap-")[1].zfill(6).replace('.','-')
+        else:
+            chapter_number = next_url.split("cap-")[1].zfill(4)
+        chapter_value = next_url.split("cap-")[1]
         # chapter_number = '0001'
                 
         # fazendo a requisição na url principal para saber se o site esta no ar
@@ -58,24 +63,23 @@ try:
             options=webdriver.ChromeOptions()
         )
         driver.get(next_url)
-        time.sleep(25)
 
-        # tratando o html recebido
-        html = BeautifulSoup(driver.page_source, 'html.parser')
-
-        # fechando o driver
-        driver.quit()
-
-        # iniciando o dicionário que armazenará os pares { pasta : url interna }
-        folder_url = {}
-
-        # coletando todas as tag <img> da url do capítulo
-        images = html.select('img')
-
-        # se forem encontradas poucas imagens, lança uma exceção
-        if len(images) < 3:
-            raise Exception(
-                f'Quantidade de imagens({len(images)}) menor que 6')
+        # inicializando variável de espera de carregamento da página
+        page_loading = True
+        while page_loading:
+            time.sleep(10)
+            # tratando o html recebido
+            html = BeautifulSoup(driver.page_source, 'html.parser')
+            # coletando todas as tag <img> da url do capítulo
+            images = html.select('img')
+            # se forem encontradas poucas imagens, recarrega a página
+            if len(images) < 3:
+                print(f'Recarregando a página\n')
+                driver.refresh()
+            else:
+               # fechando o driver
+               driver.quit()
+               page_loading = False
         
         # se a pasta do capítulo ainda não existir, será criada
         if not os.path.isdir(f'{project_folder}/{files_folder}/{chapter_number}'):
@@ -132,9 +136,9 @@ try:
 
                 # salvando a nova imagem, otimizando a qualidade
                 new_image.save(
-                    f'{project_folder}/{files_folder}/{chapter_number}/_{image_page}.{image_extension}',
+                    f'{project_folder}/{files_folder}/{chapter_number}/_{image_page}.jpg',
                     optimize=True,
-                    quality=50
+                    quality=50,
                 )
 
                 # apagando a imagem original
@@ -184,9 +188,9 @@ try:
             # se o atributo href da tag possuir os caracteres 'cap-' e o id do manga, corresponde ao link do próximo capítulo
             if url.get('href') != None and 'cap-' in url.get('href') and manga_id in url.get('href'):
 
-                url_chapter = ('https://slimeread.com' + url.get('href')).split("cap-")[1].zfill(4)
+                url_chapter = ('https://slimeread.com' + url.get('href')).split("cap-")[1]
 
-                if float(url_chapter) > float(chapter_number):
+                if float(url_chapter) > float(chapter_value):
 
                     # obtendo o link do próximo capítulo
                     next_url = 'https://slimeread.com' + url.get('href')

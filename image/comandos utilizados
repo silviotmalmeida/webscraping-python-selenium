@@ -21,6 +21,8 @@ sudo docker run -d selenium/standalone-chrome
 
         sudo pip3 install pillow
 
+        pip install pillow-avif-plugin
+
         exit
 
 sudo docker stop (id do container obtido em sudo docker ps -a)
