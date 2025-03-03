@@ -28,7 +28,7 @@ try:
     # inicializando o link do próximo capítulo
     # next_url = 'https://slimeread.com/ler/2618/cap-489'
     # next_url = 'https://slimeread.com/ler/6901/cap-102'
-    next_url = 'https://slimeread.com/ler/9113/cap-1'
+    next_url = 'https://slimeread.com/ler/9113/cap-266'
 
     manga_id = next_url.split("/")[4]
 
