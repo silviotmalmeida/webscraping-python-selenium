@@ -5,6 +5,7 @@ from selenium import webdriver  # biblioteca de automação de testes
 from selenium.webdriver.common.by import By
 import selenium.webdriver.support.ui as ui
 from selenium.webdriver.common.keys import Keys
+from selenium_stealth import stealth
 import time  # biblioteca para permitir sleep de execução
 import requests  # biblioteca de requisições http
 from bs4 import BeautifulSoup  # biblioteca de tratamento de html
@@ -14,7 +15,6 @@ import shutil  # biblioteca de manipulação de pastas
 import re  # biblioteca de expressões regulares
 from PIL import Image  # biblioteca para tratamento de imagens
 import pillow_avif  # plugin adicional para o pillow
-
 
 # função auxiliar para converter o número do capítulo em um valor numérico, para facilitar a ordenação dos arquivos
 def chapter_value(chapter):
@@ -34,7 +34,48 @@ def chapter_value(chapter):
 
     return value
 
+# função auxiliar para iniciar o driver
+def start_driver():
+    options = webdriver.ChromeOptions()
 
+    # Headless moderno (mais difícil de detectar)
+    options.add_argument("--headless")
+
+    # Tamanho realista
+    options.add_argument("--window-size=1920,1080")
+
+    # Remove sinais óbvios
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+
+    # User agent realista
+    options.add_argument(
+        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/121.0.0.0 Safari/537.36"
+    )
+
+    driver = webdriver.Chrome(options=options)
+
+    # Aplicar stealth
+    stealth(driver,
+            languages=["pt-BR", "pt"],
+            vendor="Google Inc.",
+            platform="Win32",
+            webgl_vendor="Intel Inc.",
+            renderer="Intel Iris OpenGL Engine",
+            fix_hairline=True,
+    )
+
+    # Remove navigator.webdriver manualmente
+    driver.execute_script("""
+    Object.defineProperty(navigator, 'webdriver', {
+        get: () => undefined
+    })
+    """)
+
+    return driver
 #
 #
 # Início do script
@@ -46,7 +87,7 @@ project_folder = os.path.dirname(os.path.realpath(__file__))
 # nomeando a pasta de saída dos arquivos
 files_folder = "files"
 
-# tratamento de exceções
+# tratamento de exceções 
 try:
 
     # se a pasta de arquivos ainda não existir, será criada
@@ -54,15 +95,21 @@ try:
         os.mkdir(f"{project_folder}/{files_folder}")
 
     # inicializando o link do capítulo inicial
-    initial_url = "https://weebcentral.com/chapters/01J76XYYTAFBPHA7P7DTM0KM12"
+    initial_url = "https://weebcentral.com/chapters/01J76XZ34MHTRP2G4YRW2478WA"
 
-    print(f"Tentando obter a URL da página de capítulos a partir da URL: {initial_url}\n")
+    # definindo as opções do driver
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+
+    print(
+        f"Tentando obter a URL da página de capítulos a partir da URL: {initial_url}\n"
+    )
 
     # fazendo a requisição na url principal para obter os links dos capítulos
-    driver = webdriver.Remote(
-        command_executor="http://0.0.0.0:4444/wd/hub", options=webdriver.ChromeOptions()
-    )
-    driver.get(initial_url)
+    driver = start_driver()
+    driver.get(initial_url) 
 
     # inicializando variável de espera de carregamento da página
     page_loading = True
@@ -87,24 +134,20 @@ try:
                 urls_page = span.find_parent("button").get("hx-get")
                 # obtendo o número da temporada
                 season_number = (
-                    span.text.split(" - Chapter ")[0]
-                    .strip()
-                    .replace("S", "")
-                    .zfill(2)
+                    span.text.split(" - Chapter ")[0].strip().replace("S", "").zfill(2)
                 )
                 # obtendo o número do capítulo e formatando com 6 dígitos, e substituindo pontos por hífens
                 initial_chapter_number = f"{season_number}{span.text.split(' - Chapter ')[1].strip().zfill(6).replace('.','-')}"
-                
+
         # se o número do capítulo não for descoberto, lança uma exceção
         if initial_chapter_number == "-1":
-            raise Exception(f"Não foi possível identificar o número do capítulo inicial!")
-        
-        # fazendo a requisição na urls_page para obter os links dos capítulos
-        driver = webdriver.Remote(
-            command_executor="http://0.0.0.0:4444/wd/hub", options=webdriver.ChromeOptions()
-        )
-        driver.get(urls_page)
+            raise Exception(
+                f"Não foi possível identificar o número do capítulo inicial!"
+            )
 
+        # fazendo a requisição na urls_page para obter os links dos capítulos
+        driver = start_driver()
+        driver.get(urls_page)
         time.sleep(10)
         # tratando o html recebido
         html = BeautifulSoup(driver.page_source, "html.parser")
@@ -118,7 +161,7 @@ try:
         # senão, considera a página carregada
         else:
             page_loading = False
-       
+
             # fechando o driver
             driver.quit()
 
@@ -126,7 +169,9 @@ try:
             chapters = []
 
             # inserindo o capítulo atual na lista de capítulos
-            chapters.append(f"{chapter_value(initial_chapter_number)} {initial_chapter_number} {initial_url}")
+            chapters.append(
+                f"{chapter_value(initial_chapter_number)} {initial_chapter_number} {initial_url}"
+            )
 
             # coletando todas as tag <a> da url do capítulo
             for a in html.select("a"):
@@ -139,26 +184,27 @@ try:
 
                     # obtendo o número da temporada
                     season_number = (
-                        a.text.split(" - Chapter ")[0]
-                        .strip()
-                        .replace("S", "")
-                        .zfill(2)
+                        a.text.split(" - Chapter ")[0].strip().replace("S", "").zfill(2)
                     )
                     # obtendo o número do capítulo e formatando com 6 dígitos, e substituindo pontos por hífens
                     chapter_number = f"{season_number}{a.text.split(' - Chapter ')[1].strip().zfill(6).replace('.','-')}"
-                    
+
                     # se o número do capítulo não for descoberto, lança uma exceção
                     if chapter_number == "-1":
-                        raise Exception(f"Não foi possível identificar o número do capítulo!")
-                    
+                        raise Exception(
+                            f"Não foi possível identificar o número do capítulo!"
+                        )
+
                     # inserindo o capítulo atual na lista de capítulos
-                    chapters.append(f"{chapter_value(chapter_number)} {chapter_number} {a.get('href')}")
+                    chapters.append(
+                        f"{chapter_value(chapter_number)} {chapter_number} {a.get('href')}"
+                    )
 
     print(f"Foi obtida uma lista com {len(chapters)} capítulos!\n")
 
     # ordenando a lista de capítulos pelo valor numérico do capítulo
     chapters.sort()
-    
+
     # iterando sobre a lista de capítulos para baixar os arquivos
     for chapter in chapters:
 
@@ -171,10 +217,8 @@ try:
 
             print(f"Capturando capítulo {chapter}...\n")
 
-            # fazendo a requisição na urls_page para obter os links dos capítulos
-            driver = webdriver.Remote(
-                command_executor="http://0.0.0.0:4444/wd/hub", options=webdriver.ChromeOptions()
-            )
+            # fazendo a requisição na urls_page para obter os links das imagens do capitulo
+            driver = start_driver()
             driver.get(chapter_url)
 
             # inicializando variável de espera de carregamento da página
@@ -194,6 +238,9 @@ try:
                     # considerando a página carregada
                     page_loading = False
 
+                    # fechando o driver
+                    driver.quit()
+
                     # se a pasta do capítulo ainda não existir, será criada
                     if not os.path.isdir(
                         f"{project_folder}/{files_folder}/{chapter_number}"
@@ -204,24 +251,19 @@ try:
                     for image in html.select("img"):
 
                         # se o atributo alt da tag possuir os caracteres 'Page', corresponde ao conteúdo do capítulo
-                        if (
-                            image.get("alt") != None
-                            and "Page" in image.get("alt")
-                        ):
+                        if image.get("alt") != None and "Page" in image.get("alt"):
                             # obtendo a url da imagem a partir do atributo src
                             image_url = image.get("src")
 
                             # obtendo a extensão do arquivo
-                            image_extension = image.get('src').split('.')[-1]
+                            image_extension = image.get("src").split(".")[-1]
                             # image_extension = "png"
 
                             # definindo a página da imagem a partir do atributo alt, e configurando com 4 dígitos
                             image_page = image.get("alt").split(" ")[1].strip().zfill(4)
 
-                            # abrindo a nova aba com a imagem
-                            main_window = driver.current_window_handle
-                            driver.execute_script("window.open(''),'_blank'")
-                            driver.switch_to.window(driver.window_handles[1])
+                            # abrindo a imagem
+                            driver = start_driver()
                             driver.get(image_url)
 
                             # aguardando a aba carregar
@@ -246,13 +288,13 @@ try:
                                 f"{project_folder}/{files_folder}/{chapter_number}/{image_page}.{image_extension}"
                             )
 
-                            # fechando a aba da imagem e voltando para a aba principal
-                            driver.close()
-                            driver.switch_to.window(main_window)
+                            # fechando o driver
+                            driver.quit()
 
                             # abrindo a imagem original
                             old_image = Image.open(
-                                f'{project_folder}/{files_folder}/{chapter_number}/{image_page}.{image_extension}').convert('RGB')
+                                f"{project_folder}/{files_folder}/{chapter_number}/{image_page}.{image_extension}"
+                            ).convert("RGB")
 
                             # obtendo as dimensões da imagem original
                             width, height = old_image.size
@@ -264,11 +306,12 @@ try:
                             if width > new_width:
 
                                 # calcula o novo height para manter a proporção
-                                new_height = round((new_width*height)/width)
+                                new_height = round((new_width * height) / width)
 
                                 # cria uma nova imagem redimensionada
                                 new_image = old_image.resize(
-                                    (new_width, new_height), Image.LANCZOS)
+                                    (new_width, new_height), Image.LANCZOS
+                                )
 
                             # senão
                             else:
@@ -278,22 +321,22 @@ try:
 
                             # salvando a nova imagem, otimizando a qualidade
                             new_image.save(
-                                f'{project_folder}/{files_folder}/{chapter_number}/_{image_page}.jpg',
+                                f"{project_folder}/{files_folder}/{chapter_number}/_{image_page}.jpg",
                                 optimize=True,
                                 quality=100,
                             )
 
                             # apagando a imagem original
                             cmd = subprocess.run(
-                                f"rm -rf '{project_folder}/{files_folder}/{chapter_number}/{image_page}.{image_extension}'", shell=True)
+                                f"rm -rf '{project_folder}/{files_folder}/{chapter_number}/{image_page}.{image_extension}'",
+                                shell=True,
+                            )
 
                             # se ocorrer um erro, lança uma exceção
                             if cmd.returncode != 0:
                                 raise Exception(
-                                    f'Erro apagando a imagem {project_folder}/{files_folder}/{chapter_number}/{image_page}.{image_extension}')
-
-                    # fechando o driver
-                    driver.quit()
+                                    f"Erro apagando a imagem {project_folder}/{files_folder}/{chapter_number}/{image_page}.{image_extension}"
+                                )
 
                     # utilizando o imagemagick para realizar converter o capítulo em pdf
                     cmd = subprocess.run(
@@ -317,7 +360,8 @@ try:
 
                     # apagando a pasta com as imagens
                     cmd = subprocess.run(
-                        f"rm -rf '{project_folder}/{files_folder}/{chapter_number}/'", shell=True
+                        f"rm -rf '{project_folder}/{files_folder}/{chapter_number}/'",
+                        shell=True,
                     )
 
                     # se ocorrer um erro, lança uma exceção

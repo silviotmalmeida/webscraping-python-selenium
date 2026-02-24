@@ -23,6 +23,8 @@ sudo docker run -d selenium/standalone-chrome
 
         pip install pillow-avif-plugin
 
+        sudo pip3 install selenium-stealth
+
         exit
 
 sudo docker stop (id do container obtido em sudo docker ps -a)
